@@ -11,7 +11,7 @@ def _parse_date(date: str) -> date:
 
 if __name__ == '__main__':
     parser = ArgumentParser(
-        prog='Android Call Log Converter',
+        prog='python -m call_log_converter',
         description='Converts a call log exported from a Android phone in json format to a csv file.'
     )
     parser.add_argument('infile', metavar='infile.json',
