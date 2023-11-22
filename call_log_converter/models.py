@@ -1,7 +1,5 @@
 import csv
 import dataclasses
-import sys
-from argparse import ArgumentParser
 from collections.abc import Iterable, Sequence
 from contextlib import nullcontext
 from dataclasses import dataclass
@@ -10,14 +8,12 @@ from enum import Enum, Flag, IntEnum, IntFlag, UNIQUE, verify
 from io import StringIO
 from os import PathLike
 from pathlib import Path
-from typing import Self, TypeVar, ClassVar, TextIO
+from typing import Self, ClassVar, TextIO
 import json
 import pytz
 
 
 tz = pytz.timezone('Europe/Vienna')
-
-T = TypeVar('T')
 
 
 class PrettyEnum(Enum):
@@ -313,39 +309,3 @@ class PhoneCall:
                 return output_io.getvalue()
             finally:
                 output_io.close()
-
-
-def _parse_date(date: str) -> date:
-    return datetime.strptime(date, '%Y-%m-%d').date()
-
-
-if __name__ == '__main__':
-    parser = ArgumentParser(
-        prog='Android Call Log Converter',
-        description='Converts a call log exported from a Android phone in json format to a csv file.'
-    )
-    parser.add_argument('infile', metavar='infile.json',
-                        help='The file to convert or "-" to read from stdin.')
-    parser.add_argument('-o', '--output', required=False, metavar='output.csv',
-                        help='The file to write to or "-" to write to stdout. If not specified the input filename '
-                             '(with .csv) or stdout will be used.',)
-    parser.add_argument('--start', required=False, metavar='YYYY-MM-DD', type=_parse_date,
-                        help='Limit export to calls on or after specified date.')
-    parser.add_argument('--stop', required=False, metavar='YYYY-MM-DD', type=_parse_date,
-                        help='Limit export to calls until (including) specified date.')
-    args = parser.parse_args()
-    output = args.output
-
-    if args.infile == '-':
-        infile = sys.stdin
-    else:
-        if not output:
-            output = args.infile.rsplit('.', 1)[0] + '.csv'
-        infile = Path(args.infile)
-
-    if not output or output == '-':
-        output = sys.stdout
-    else:
-        output = Path(output)
-
-    PhoneCall.convert_to_csv(infile, output=output, start_date=args.start, stop_date=args.stop)
