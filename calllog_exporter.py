@@ -2,12 +2,15 @@ import csv
 import dataclasses
 import sys
 from argparse import ArgumentParser
-from collections.abc import Sequence, Iterable
+from collections.abc import Iterable, Sequence
 from contextlib import nullcontext
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from enum import Enum, Flag, IntEnum, IntFlag, UNIQUE, verify
-from typing import Self, TypeVar, ClassVar
+from io import StringIO
+from os import PathLike
+from pathlib import Path
+from typing import Self, TypeVar, ClassVar, TextIO
 import json
 import pytz
 
@@ -166,7 +169,6 @@ class PhoneCall:
     block_reason: BlockedReason
     # The priority of the call, as delivered via call composer.
     priority: int
-    numbertype: NumberType
     countryiso: str
     is_call_log_phone_account_migration_pending: bool
     post_dial_digits: str
@@ -179,6 +181,7 @@ class PhoneCall:
     lookup_uri: str = None
     name: str = ""
     display_name: str = ""
+    numbertype: NumberType = None
     data_usage: int = None
     geocoded_location: str = ""
 
@@ -265,9 +268,55 @@ class PhoneCall:
 
         return row
 
+    @classmethod
+    def convert_to_csv(cls, infile: str | PathLike[str] | TextIO, output: PathLike[str] | TextIO | None = None,
+                       start_date: date | datetime | None = None, stop_date: date | datetime | None = None,
+                       ) -> str | None:
+        if isinstance(start_date, date):
+            start_date = datetime.combine(start_date, time(), tzinfo=tz)
+        if isinstance(stop_date, date):
+            stop_date = datetime.combine(stop_date, time(), tzinfo=tz)
+        if stop_date:
+            stop_date += timedelta(days=1)
 
-def _parse_date(date: str) -> datetime:
-    return datetime.strptime(date, '%Y-%m-%d')
+        match infile:
+            case str():
+                calls = json.loads(infile)
+            case Path():
+                with open(infile, 'r') as fp:
+                    calls = json.load(fp)
+            case _:
+                calls = json.load(infile)
+
+        match output:
+            case Path():
+                output_io = None
+            case None:
+                output_io = StringIO(newline='')
+            case _:
+                output_io = output
+
+        calls = PhoneCall.from_json(calls)
+
+        with (open(output, 'w', newline='') if isinstance(output, Path) else nullcontext(output_io)) as fp:
+            writer = csv.writer(fp, dialect=csv.unix_dialect)
+            writer.writerow(PhoneCall.csv_header())
+            for call in calls:
+                if start_date and call.date < start_date:
+                    break
+                if stop_date and call.date >= stop_date:
+                    continue
+                writer.writerow(call.csv_row())
+
+        if output is None:
+            try:
+                return output_io.getvalue()
+            finally:
+                output_io.close()
+
+
+def _parse_date(date: str) -> date:
+    return datetime.strptime(date, '%Y-%m-%d').date()
 
 
 if __name__ == '__main__':
@@ -279,32 +328,24 @@ if __name__ == '__main__':
                         help='The file to convert or "-" to read from stdin.')
     parser.add_argument('-o', '--output', required=False, metavar='output.csv',
                         help='The file to write to or "-" to write to stdout. If not specified the input filename '
-                             'will be used.',)
+                             '(with .csv) or stdout will be used.',)
     parser.add_argument('--start', required=False, metavar='YYYY-MM-DD', type=_parse_date,
                         help='Limit export to calls on or after specified date.')
     parser.add_argument('--stop', required=False, metavar='YYYY-MM-DD', type=_parse_date,
                         help='Limit export to calls until (including) specified date.')
     args = parser.parse_args()
     output = args.output
-    if args.start:
-        args.start: datetime = args.start.replace(tzinfo=tz)
-    if args.stop:
-        args.stop: datetime = args.stop.replace(tzinfo=tz) + timedelta(days=1)
+
     if args.infile == '-':
-        calls = json.load(sys.stdin)
+        infile = sys.stdin
     else:
         if not output:
             output = args.infile.rsplit('.', 1)[0] + '.csv'
-        with open(args.infile, 'r') as fp:
-            calls = json.load(fp)
-    calls = PhoneCall.from_json(calls)
+        infile = Path(args.infile)
 
-    with (nullcontext(sys.stdout) if output == '-' else open(output, 'w', newline='')) as fp:
-        csv = csv.writer(fp, dialect=csv.unix_dialect)
-        csv.writerow(PhoneCall.csv_header())
-        for call in calls:
-            if args.start and call.date < args.start:
-                break
-            if args.stop and call.date >= args.stop:
-                continue
-            csv.writerow(call.csv_row())
+    if not output or output == '-':
+        output = sys.stdout
+    else:
+        output = Path(output)
+
+    PhoneCall.convert_to_csv(infile, output=output, start_date=args.start, stop_date=args.stop)
