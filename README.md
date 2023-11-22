@@ -62,7 +62,7 @@ PhoneCall.convert_to_csv(infile, output)
 ```
 
 The `infile` and `output` can either be a PathLike object for them to be treated as files, or a file like object.  
-The `infile` additionally can also be a string, in which case it is directly parsed as json.
+The `infile` additionally can also be a string, in which case it is directly parsed as json.  
 If `output` is omitted the method returns the generated csv as a string.
 
 The method also accepts two optional parameters `start_date` and `stop_date` which can be used to filter the data.
