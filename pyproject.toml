@@ -1,0 +1,29 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "android_call_log_converter"
+version = "0.0.1a"
+dependencies = [
+  "pytz",
+]
+requires-python = ">=3.11"
+authors = [
+  {name="EvilScientress", email="mail@evilscientress.de"},
+]
+description = "A simple python tool to parse and convert call logs exported from an android device."
+readme = "README.md"
+license = {file = 'LICENSE.txt'}
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/evilscientres/android_call_log_converter"
+Issues = "https://github.com/evilscientres/android_call_log_converter/issues"
+
+[project.scripts]
+call_log_converter = "call_log_converter:cli"
